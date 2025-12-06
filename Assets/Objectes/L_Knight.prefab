@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: -8817954883222565526}
   m_Layer: 0
   m_Name: L_Knight
-  m_TagString: Untagged
+  m_TagString: piece
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -98,6 +98,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 97543b4ba256a144d968871c820b520d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  auxPiece: {fileID: 0}
+  eliminated: 0
+  promoSprites: []
+  type: none
+  position: {x: -1, y: -1}
+  possibleMoves: []
+  threads: []
 --- !u!61 &-8817954883222565526
 BoxCollider2D:
   m_ObjectHideFlags: 0

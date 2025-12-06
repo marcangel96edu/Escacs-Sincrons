@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: -8900101496165166992}
   m_Layer: 0
   m_Name: D_Pawn
-  m_TagString: Untagged
+  m_TagString: piece
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -98,6 +98,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 97543b4ba256a144d968871c820b520d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  auxPiece: {fileID: 0}
+  eliminated: 0
+  promoSprites:
+  - {fileID: 21300000, guid: 429c309c15c175049b843416f6582b3a, type: 3}
+  - {fileID: 21300000, guid: c596ef693cb600745be35608a3ebe327, type: 3}
+  - {fileID: 21300000, guid: a91b56bfa8569b247a2f4d9b4c5e42a5, type: 3}
+  - {fileID: 21300000, guid: bdc914cd98e77f842a1e5d7cf65ac0c1, type: 3}
+  type: none
+  position: {x: -1, y: -1}
+  possibleMoves: []
+  threads: []
 --- !u!61 &-8900101496165166992
 BoxCollider2D:
   m_ObjectHideFlags: 0
