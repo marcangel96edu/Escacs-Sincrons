@@ -7,6 +7,10 @@ using System;
 public class Manager : MonoBehaviour
 {
     [SerializeField]
+    private Sounds sounds;
+    [SerializeField]
+    private Simulator simulator;
+    [SerializeField]
     private List<GameObject> originalPieces;
     [SerializeField]
     private List<GameObject> pieces;
@@ -19,6 +23,8 @@ public class Manager : MonoBehaviour
     [SerializeField]
     private float moveTime;
     [SerializeField]
+    private float secondTimer;
+    [SerializeField]
     private TMP_Text moveTimerText;
     [SerializeField]
     private TMP_Text evalText;
@@ -26,8 +32,43 @@ public class Manager : MonoBehaviour
     private TMP_Text evalAuxText;
     [SerializeField]
     private TMP_Text livesText;
+
+    [SerializeField]
+    private int playerOrderEliminated = 2;
+    [SerializeField]
+    private int enemyOrderEliminated = 2;
+    [SerializeField]
+    private float playerIncEliminated = 0f;
+    [SerializeField]
+    private float enemyIncEliminated = 0f;
+    [SerializeField]
+    private float incEliminated = 0.05f;
+
+    [SerializeField]
+    private bool failSound;
+    [SerializeField]
+    private bool endSound;
+
     [SerializeField]
     private int algorithmId;
+    [SerializeField]
+    private int playerAlgorithmId = -1;
+    [SerializeField] 
+    private bool simulationMode;
+    [SerializeField]
+    private int currentSimulation = 0;
+    [SerializeField]
+    private int gameId = 0;
+    [SerializeField]
+    private int[] algorithms = {0, 1, 2, 3, 4};
+    [SerializeField]
+    private int simulationsPerPair = 500;
+    private List<(int enemyAlg, int playerAlg)> matchups;
+    [SerializeField]
+    private int currentMatchupIndex = 0;
+
+    [SerializeField]
+    private int simulation;
     [SerializeField]
     private int miniMaxDepth;
     [SerializeField]
@@ -99,6 +140,92 @@ public class Manager : MonoBehaviour
     private GameObject playerAuxPieceToMove2 = null;
     private Vector2 playerAuxPositionToMove2 = new Vector2(-1f, -1f);
 
+    [SerializeField]
+    private List<int> playerPiecesSicilian;
+    [SerializeField]
+    private List<Vector2> playerPositionsSicilian;
+    [SerializeField]
+    private List<int> enemyPiecesSicilian;
+    [SerializeField]
+    private List<Vector2> enemyPositionsSicilian;
+
+    [SerializeField]
+    private List<int> playerPiecesSpanish;
+    [SerializeField]
+    private List<Vector2> playerPositionsSpanish;
+    [SerializeField]
+    private List<int> enemyPiecesSpanish;
+    [SerializeField]
+    private List<Vector2> enemyPositionsSpanish;
+
+    [SerializeField]
+    private List<int> playerPiecesItalian;
+    [SerializeField]
+    private List<Vector2> playerPositionsItalian;
+    [SerializeField]
+    private List<int> enemyPiecesItalian;
+    [SerializeField]
+    private List<Vector2> enemyPositionsItalian;
+
+    [SerializeField]
+    private List<int> playerPiecesCatalan;
+    [SerializeField]
+    private List<Vector2> playerPositionsCatalan;
+    [SerializeField]
+    private List<int> enemyPiecesCatalan;
+    [SerializeField]
+    private List<Vector2> enemyPositionsCatalan;
+
+    [SerializeField]
+    private List<int> playerPiecesCaroKann;
+    [SerializeField]
+    private List<Vector2> playerPositionsCaroKann;
+    [SerializeField]
+    private List<int> enemyPiecesCaroKann;
+    [SerializeField]
+    private List<Vector2> enemyPositionsCaroKann;
+
+    [SerializeField]
+    private List<int> playerPiecesScandinavian;
+    [SerializeField]
+    private List<Vector2> playerPositionsScandinavian;
+    [SerializeField]
+    private List<int> enemyPiecesScandinavian;
+    [SerializeField]
+    private List<Vector2> enemyPositionsScandinavian;
+
+    [SerializeField]
+    private List<int> playerPiecesPawnCenter;
+    [SerializeField]
+    private List<Vector2> playerPositionsPawnCenter;
+    [SerializeField]
+    private List<int> enemyPiecesPawnCenter;
+    [SerializeField]
+    private List<Vector2> enemyPositionsPawnCenter;
+
+    [SerializeField]
+    private List<int> playerPiecesKingIndian;
+    [SerializeField]
+    private List<Vector2> playerPositionsKingIndian;
+    [SerializeField]
+    private List<int> enemyPiecesKingIndian;
+    [SerializeField]
+    private List<Vector2> enemyPositionsKingIndian;
+
+    [SerializeField]
+    private List<int> playerPiecesOpening;
+    [SerializeField]
+    private List<Vector2> playerPositionsOpening;
+    [SerializeField]
+    private List<int> enemyPiecesOpening;
+    [SerializeField]
+    private List<Vector2> enemyPositionsOpening;
+
+    [SerializeField]
+    private int playerInitialPlay;
+    [SerializeField]
+    private int enemyInitialPlay;
+
     private float moveTimer;
     [SerializeField]
     private int tempo = 0;
@@ -106,29 +233,192 @@ public class Manager : MonoBehaviour
     private bool playing = false;
     [SerializeField]
     private bool startPlaying = false;
+
+    [SerializeField]
+    private GameObject playButtons;
+    [SerializeField]
+    private GameObject dificultyButtons;
+    [SerializeField]
+    private GameObject stopButtons;
+    [SerializeField]
+    private GameObject timerObject;
+    [SerializeField]
+    private GameObject livesObject;
+    [SerializeField]
+    private GameObject heart1;
+    [SerializeField]
+    private GameObject heart2;
+    [SerializeField]
+    private GameObject heart3;
+
     // Start is called before the first frame update
     void Start()  {
+        timerObject.SetActive(false);
+        livesObject.SetActive(false);
+        checkHearts();
         InstantiateInitialPositions();
         setEnabledMoves(false);
         moveTimer = moveTime;
+        secondTimer = moveTime - 1f;
+
+        if (simulationMode) {
+            simulator.setFileName("results.txt");
+            BuildMatchups();
+            currentMatchupIndex = 0;
+
+            LoadCurrentMatchup();
+            StartNextSimulation();
+        }
     }
 
     // Update is called once per frame
     void Update() {
         if (startPlaying) {
+            playerIncEliminated = 0f;
+            enemyIncEliminated = 0f;
+            endSound = false;
+            failSound = false;
+            if (simulationMode) {
+                gameId++;
+            }
             InstantiateInitialPositions();
-            //evalText.text = evaluate().ToString("0.00");
-            //evalAuxText.text = evaluateAux().ToString("0.00");
+            setInitialEnemyOpening();
             lives = maxLives;
             livesText.text = "lives: " + lives;
             moveTimer = moveTime;
+            secondTimer = moveTime - 1f;
             setEnabledMoves(true);
             tempo = 0;
             setPreMove();
+            if (playerAlgorithmId != -1) {
+                setInitialPlayerOpening();
+                setPlayerPreMove();
+            }
             startPlaying = false;
             playing = true;
+            timerObject.SetActive(true);
+            livesObject.SetActive(true);
+            checkHearts();
         }
         if (playing) advanceTimer();
+    }
+
+    private void reporduceSounds() {
+        if (endSound) sounds.reproduceEnd();
+        else if (failSound) sounds.reproduceFail();
+        else sounds.reproducePiece();
+        endSound = false;
+        failSound = false;
+    }
+
+    private void setInitialEnemyOpening() {        
+        System.Random random = new System.Random();
+        enemyInitialPlay = random.Next(0, 7);
+
+        switch (enemyInitialPlay) {
+            case 0:
+                enemyPiecesOpening = enemyPiecesSicilian;
+                enemyPositionsOpening = enemyPositionsSicilian;
+                break;
+            case 1:
+                enemyPiecesOpening = enemyPiecesSpanish;
+                enemyPositionsOpening = enemyPositionsSpanish;
+                break;
+            case 2:
+                enemyPiecesOpening = enemyPiecesItalian;
+                enemyPositionsOpening = enemyPositionsItalian;
+                break;
+            case 3:
+                enemyPiecesOpening = enemyPiecesCatalan;
+                enemyPositionsOpening = enemyPositionsCatalan;
+                break;
+            case 4:
+                enemyPiecesOpening = enemyPiecesCaroKann;
+                enemyPositionsOpening = enemyPositionsCaroKann;
+                break;
+            case 5:
+                enemyPiecesOpening = enemyPiecesScandinavian;
+                enemyPositionsOpening = enemyPositionsScandinavian;
+                break;
+            case 6:
+                enemyPiecesOpening = enemyPiecesPawnCenter;
+                enemyPositionsOpening = enemyPositionsPawnCenter;
+                break;
+            case 7:
+                enemyPiecesOpening = enemyPiecesKingIndian;
+                enemyPositionsOpening = enemyPositionsKingIndian;
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void setInitialPlayerOpening() {        
+        System.Random random = new System.Random();
+        playerInitialPlay = random.Next(0, 7);
+
+        switch (playerInitialPlay) {
+            case 0:
+                playerPiecesOpening = playerPiecesSicilian;
+                playerPositionsOpening = playerPositionsSicilian;
+                break;
+            case 1:
+                playerPiecesOpening = playerPiecesSpanish;
+                playerPositionsOpening = playerPositionsSpanish;
+                break;
+            case 2:
+                playerPiecesOpening = playerPiecesItalian;
+                playerPositionsOpening = playerPositionsItalian;
+                break;
+            case 3:
+                playerPiecesOpening = playerPiecesCatalan;
+                playerPositionsOpening = playerPositionsCatalan;
+                break;
+            case 4:
+                playerPiecesOpening = playerPiecesCaroKann;
+                playerPositionsOpening = playerPositionsCaroKann;
+                break;
+            case 5:
+                playerPiecesOpening = playerPiecesScandinavian;
+                playerPositionsOpening = playerPositionsScandinavian;
+                break;
+            case 6:
+                playerPiecesOpening = playerPiecesPawnCenter;
+                playerPositionsOpening = playerPositionsPawnCenter;
+                break;
+            case 7:
+                playerPiecesOpening = playerPiecesKingIndian;
+                playerPositionsOpening = playerPositionsKingIndian;
+                break;
+            default:
+                break;
+        }
+    }
+
+    public void setPlayButtons() {
+        playButtons.SetActive(false);
+        dificultyButtons.SetActive(true);
+        stopButtons.SetActive(false);
+    }
+
+    public void setDifficultyButtons() {
+        playButtons.SetActive(false);
+        dificultyButtons.SetActive(false);
+        stopButtons.SetActive(true);
+    }
+
+    public void setStopButtons() {
+        playButtons.SetActive(true);
+        dificultyButtons.SetActive(false);
+        stopButtons.SetActive(false);
+        playing = false;
+        setEnabledMoves(false);
+        InstantiateInitialPositions();
+        setEnabledMoves(false);
+        moveTimer = moveTime;
+        secondTimer = moveTime - 1f;
+        timerObject.SetActive(false);
+        livesObject.SetActive(false);
     }
 
     public void setStartPlaying(bool newStartPlaying) {
@@ -137,6 +427,10 @@ public class Manager : MonoBehaviour
 
     public void setAlgorithmId(int newAlgorithmId) {
         algorithmId = newAlgorithmId;
+    }
+
+    public void setPlayerAlgorithmId(int newPlayerAlgorithmId) {
+        playerAlgorithmId = newPlayerAlgorithmId;
     }
 
     public void exitApp() {
@@ -153,35 +447,47 @@ public class Manager : MonoBehaviour
             livesText.text = "lives: " + lives;
             resetAllPossibleMoves();
             resetAuxPieces();
-            //evalText.text = evaluate().ToString("0.00");
-            //evalAuxText.text = evaluateAux().ToString("0.00");
             checkFinishConditions();
-            if (playing) setPreMove();
+            if (playing) {
+                setPreMove();
+                if (playerAlgorithmId != -1) setPlayerPreMove();
+            }
             moveTimer = moveTime;
+            secondTimer = moveTime - 1f;
+            reporduceSounds();
+        } else if (moveTimer < secondTimer) {
+            sounds.reproduceTic();
+            secondTimer -= 1f;
         }
     }
 
     private void checkFinishConditions() {
-        if (lives <= 0) {
-            moveTimerText.text = "You Lost!";
-            playing = false;
+        string result = null;
+        if (simulationMode && tempo >= 300) {
+            result = "Draw";
         }
-        if (checkDraw()) {
-                moveTimerText.text = "Draw!";
-                playing = false;
+        if (checkDraw() || (checkWin("player") && checkWin("enemy"))) {
+            result = "Draw";
+            moveTimerText.text = "Empat!";
+        } else if (checkWin("player")) {
+            result = "Player";
+            moveTimerText.text = "Has guanyat!";
+        } else if (checkWin("enemy")) {
+            result = "EnemyWin";
+            moveTimerText.text = "Has Perdut!";
+        } else if (lives <= 0) {
+            result = "EnemyWin";
+            moveTimerText.text = "Has Perdut!";
+        }
+        if (result != null) {
+            endSound = true;
+            playing = false;
+
+            if (simulationMode) {
+                simulator.LogGame(gameId, algorithmId, playerAlgorithmId, result, tempo);
+                StartNextSimulation();
             }
-            if (checkWin("player") && checkWin("enemy")) {
-                moveTimerText.text = "Draw!";
-                playing = false;
-            }
-            if (checkWin("player")) {
-                moveTimerText.text = "You won!";
-                playing = false;
-            }
-            else if (checkWin("enemy")) {
-                moveTimerText.text = "You Lost!";
-                playing = false;
-            }
+        }
     }
 
     private bool checkDraw() {
@@ -279,7 +585,7 @@ public class Manager : MonoBehaviour
             Piece pieceScript = piece.GetComponent<Piece>();
             if (pieceScript.getType() == type + "King" && pieceScript.getEliminated()) return true;
         }
-        return isCheckMate(type);
+        return isAuxCheckMate(type);
     }
 
     private bool isCheckMate(string type) {
@@ -353,6 +659,27 @@ public class Manager : MonoBehaviour
                 break;
         }
     }
+    private void setPlayerPreMove() {
+        switch (playerAlgorithmId) {
+            case 0:
+                playerRandomAlgorithm();
+                break;
+            case 1:
+                playerRulesAlgorithm();
+                break;
+            case 2:
+                playerRulesAlgorithm();
+                break;
+            case 3:
+                playerRulesAlgorithm();
+                break;
+            case 4:
+                playerMinimaxAlgorithm();
+                break;
+            default:
+                break;
+        }
+    }
 
     private void setMoves() {
         Piece playerPieceScript = null;
@@ -379,6 +706,8 @@ public class Manager : MonoBehaviour
             }
         } else {
             --lives;
+            checkHearts();
+            failSound = true;
         }
         if (enemyPieceToMove != null) {
             enemyPieceScript = enemyPieceToMove.GetComponent<Piece>();
@@ -639,6 +968,26 @@ public class Manager : MonoBehaviour
         resetAuxPreMoves();
     }
 
+    public void checkHearts() {
+        if (lives >= 3) {
+            heart1.SetActive(true);
+            heart2.SetActive(true);
+            heart3.SetActive(true);
+        } else if (lives == 2) {
+            heart1.SetActive(true);
+            heart2.SetActive(true);
+            heart3.SetActive(false);
+        } else if (lives == 1) {
+            heart1.SetActive(true);
+            heart2.SetActive(false);
+            heart3.SetActive(false);
+        } else if (lives <=0) {
+            heart1.SetActive(false);
+            heart2.SetActive(false);
+            heart3.SetActive(false);
+        }
+    }
+
     public void preMovePiece(GameObject piece, Vector2 position, string type, int pieceToPromote) {
         if (type == "player") {
             playerPieceToMove = piece;
@@ -672,8 +1021,23 @@ public class Manager : MonoBehaviour
     }
 
     public void setPieceEliminated(GameObject piece) {
-        piece.GetComponent<Piece>().setPosition(new Vector2(-1f, -1f));
-        piece.transform.position = traduceSquare(new Vector2(-1f, -1f));
+        Piece pieceScript = piece.GetComponent<Piece>();
+        pieceScript.setPosition(new Vector2(-1f, -1f));
+
+        SpriteRenderer spriteRenderer = piece.GetComponent<SpriteRenderer>();
+        if (pieceScript.getType().Contains("player") && pieceScript.getAuxPiece() != null) {
+            piece.transform.position = new Vector3((-1f * 0.7875f) - playerIncEliminated, 0f * 0.7875f, 0f);
+            playerIncEliminated += incEliminated;
+            spriteRenderer.sortingOrder = playerOrderEliminated;
+            ++playerOrderEliminated;
+        } else if (pieceScript.getType().Contains("enemy") && pieceScript.getAuxPiece() != null) {
+            piece.transform.position = new Vector3((-1f * 0.7875f) - enemyIncEliminated, -1f * 0.7875f, 0f);
+            enemyIncEliminated += incEliminated;
+            spriteRenderer.sortingOrder = playerOrderEliminated;
+            ++playerOrderEliminated;
+        }
+        
+        
     }
 
     private void initiatePiece(GameObject piece, Vector2 position, string type, GameObject auxPiece) {
@@ -700,7 +1064,7 @@ public class Manager : MonoBehaviour
     public bool isKingDead(string type) {
         foreach (GameObject piece in pieces) {
             Piece pieceScript = piece.GetComponent<Piece>();
-            if (pieceScript.getType() == type + "king") {
+            if (pieceScript.getType() == type + "King") {
                 return pieceScript.getEliminated();
             }
         }
@@ -710,7 +1074,7 @@ public class Manager : MonoBehaviour
     public bool isAuxKingDead(string type) {
         foreach (GameObject piece in auxPieces) {
             Piece pieceScript = piece.GetComponent<Piece>();
-            if (pieceScript.getType() == type + "king") {
+            if (pieceScript.getType() == type + "King") {
                 return pieceScript.getEliminated();
             }
         }
@@ -812,43 +1176,81 @@ public class Manager : MonoBehaviour
             enemyPieceToMove2 = null;
             enemyPositionToMove2 = new Vector2(-1f, -1f);
         }
+
+        if (tempo < enemyPositionsOpening.Count) {
+            if (!pieces[enemyPiecesOpening[tempo]].GetComponent<Piece>().getEliminated()) {
+                enemyPieceToMove = pieces[enemyPiecesOpening[tempo]];
+                enemyPositionToMove = enemyPositionsOpening[tempo];
+                enemyPieceToMove2 = null;
+                enemyPositionToMove2 = new Vector2(-1f, -1f);
+                enemyPieceToPromote = -1;
+            }
+        }
     }
 
     private void playerRandomAlgorithm() {
         List<GameObject> aviablePieces = new List<GameObject>();
-        foreach(GameObject piece in pieces) {
+        foreach (GameObject piece in pieces) {
             Piece pieceScript = piece.GetComponent<Piece>();
-            if (pieceScript.getType().Contains("player") && pieceScript.getPossibleMoves().Count > 0) {
+            if (pieceScript.getType().Contains("player") && pieceScript.getPossibleMoves().Count > 0 && !pieceScript.getEliminated()) {
                 aviablePieces.Add(piece);
             }
+        }
+
+        if (aviablePieces.Count == 0) {
+            playerPieceToMove = null;
+            playerPositionToMove = new Vector2(-1f, -1f);
+            playerPieceToPromote = -1;
+            playerPieceToMove2 = null;
+            playerPositionToMove2 = new Vector2(-1f, -1f);
+            return;
         }
 
         System.Random random = new System.Random();
         int i = random.Next(0, aviablePieces.Count);
         playerPieceToMove = aviablePieces[i];
+
         Piece playerPieceToMoveScript = playerPieceToMove.GetComponent<Piece>();
         List<Vector2> possibleMoves = playerPieceToMoveScript.getPossibleMoves();
+
         int j = random.Next(0, possibleMoves.Count);
         playerPositionToMove = possibleMoves[j];
 
-        if (playerPieceToMoveScript.getType().Contains("Pawn") && playerPositionToMove.y == 0f && playerPieceToMoveScript.getPosition().y == 1f) {
+        if (playerPieceToMoveScript.getType().Contains("Pawn") &&
+            playerPositionToMove.y == 7f &&
+            playerPieceToMoveScript.getPosition().y == 6f) {
             playerPieceToPromote = random.Next(0, promotion.Count - 1);
-        } else playerPieceToPromote = -1;
+        }
+        else playerPieceToPromote = -1;
 
-        if (playerPieceToMoveScript.getType() == "playerKing" && playerPieceToMoveScript.getPosition() == new Vector2(4f, 7f)) {
+        if (playerPieceToMoveScript.getType() == "playerKing" &&
+            playerPieceToMoveScript.getPosition() == new Vector2(4f, 7f)) {
             if (playerPositionToMove == new Vector2(2f, 7f)) {
                 playerPieceToMove2 = getPieceByPosition(new Vector2(0f, 7f));
                 playerPositionToMove2 = new Vector2(3f, 7f);
-            } else if (playerPositionToMove == new Vector2(6f, 7f)) {
+            }
+            else if (playerPositionToMove == new Vector2(6f, 7f)) {
                 playerPieceToMove2 = getPieceByPosition(new Vector2(7f, 7f));
                 playerPositionToMove2 = new Vector2(5f, 7f);
-            } else {
+            }
+            else {
                 playerPieceToMove2 = null;
                 playerPositionToMove2 = new Vector2(-1f, -1f);
             }
-        } else {
+        }
+        else {
             playerPieceToMove2 = null;
             playerPositionToMove2 = new Vector2(-1f, -1f);
+        }
+
+        if (tempo < playerPositionsOpening.Count) {
+            if (!pieces[playerPiecesOpening[tempo]].GetComponent<Piece>().getEliminated()) {
+                playerPieceToMove = pieces[playerPiecesOpening[tempo]];
+                playerPositionToMove = playerPositionsOpening[tempo];
+                playerPieceToMove2 = null;
+                playerPositionToMove2 = new Vector2(-1f, -1f);
+                playerPieceToPromote = -1;
+            }
         }
     }
 
@@ -876,7 +1278,7 @@ public class Manager : MonoBehaviour
                 foreach(Vector2 positionToMove in pieceScript.getPossibleMoves()) {
                     preMoveAuxPiece(pieceScript.getAuxPiece(), positionToMove, "enemy");
                     setAuxMoves();
-                    List<Vector2> rivalThreads = getAllThreads("player");
+                    List<Vector2> rivalThreads = getAllAuxThreads("player");
                     
                     if (isAuxCheckMate("player")) {
                         bestPoints += 10000f;
@@ -945,6 +1347,16 @@ public class Manager : MonoBehaviour
             enemyPieceToMove2 = null;
             enemyPositionToMove2 = new Vector2(-1f, -1f);
         }
+
+        if (tempo < enemyPositionsOpening.Count) {
+            if (!pieces[enemyPiecesOpening[tempo]].GetComponent<Piece>().getEliminated()) {
+                enemyPieceToMove = pieces[enemyPiecesOpening[tempo]];
+                enemyPositionToMove = enemyPositionsOpening[tempo];
+                enemyPieceToMove2 = null;
+                enemyPositionToMove2 = new Vector2(-1f, -1f);
+                enemyPieceToPromote = -1;
+            }
+        }
     }
 
     private void playerRulesAlgorithm() {
@@ -954,55 +1366,58 @@ public class Manager : MonoBehaviour
         int bestAviablePieces = 0;
         float bestPoints = -1f;
 
-        //Debug.Log("---------------------------------------------");
-        foreach(GameObject piece in pieces) {
+        foreach (GameObject piece in pieces) {
             Piece pieceScript = piece.GetComponent<Piece>();
-            if (pieceScript.getType().Contains("player") && pieceScript.getPossibleMoves().Count > 0) {
-                foreach(Vector2 positionToMove in pieceScript.getPossibleMoves()) {
+            if (pieceScript.getType().Contains("player") && 
+                pieceScript.getPossibleMoves().Count > 0 && 
+                !pieceScript.getEliminated()) {
+
+                foreach (Vector2 positionToMove in pieceScript.getPossibleMoves()) {
+
                     preMoveAuxPiece(pieceScript.getAuxPiece(), positionToMove, "player");
                     setAuxMoves();
-                    List<Vector2> rivalThreads = getAllThreads("player");
-                    
-                    if (isAuxCheckMate("player")) {
+
+                    List<Vector2> rivalThreads = getAllAuxThreads("enemy");
+
+                    if (isAuxCheckMate("enemy")) {
                         bestPoints += 10000f;
                         bestPieceToMove = piece;
                         bestPositionToMove = positionToMove;
-                    } else {
+                    } 
+                    else {
                         float actualPoints = 0f;
                         string tileStatus = getTileStatus(positionToMove);
-                        if (tileStatus.Contains("player")) {
+
+                        if (tileStatus.Contains("enemy")) {
                             actualPoints += getPointsPerPiece(tileStatus) - (getPointsPerPiece(pieceScript.getType()) * demotionPoints);
-                            if (algorithmId == 1) actualPoints += killPoints;
-                        } 
+                        }
                         if (rivalThreads.Contains(pieceScript.getPosition())) {
                             actualPoints += getPointsPerPiece(pieceScript.getType());
-                            if (algorithmId == 2 && rivalThreads.Contains(pieceScript.getPosition())) actualPoints += savePoints;
                         }
-                        if (isAuxMate("player")) {
+                        if (isAuxMate("enemy")) {
                             actualPoints += matePoints;
-                            if (algorithmId == 3) actualPoints += extraMatePoints;
                         }
-                        if (pieceScript.getType().Contains("Pawn") && positionToMove.y == 0f) actualPoints += promotePoints;
+                        if (pieceScript.getType().Contains("Pawn") && positionToMove.y == 7f) actualPoints += promotePoints;
                         if (pieceScript.getType().Contains("King") && pieceScript.getPosition().x == 4f && (positionToMove.x == 2f || positionToMove.x == 6f)) actualPoints += castlingPoints;
 
                         List<GameObject> aviablePieces = new List<GameObject>();
-                        foreach(GameObject auxPiece in auxPieces) {
+                        foreach (GameObject auxPiece in auxPieces) {
                             Piece auxPieceScript = auxPiece.GetComponent<Piece>();
-                            if (auxPieceScript.getType().Contains("player") && auxPieceScript.getPossibleMoves().Count > 0) {
+                            if (auxPieceScript.getType().Contains("player") && auxPieceScript.getPossibleMoves().Count > 0 && !auxPieceScript.getEliminated()) {
                                 aviablePieces.Add(auxPiece);
                             }
                         }
 
-                        if (actualPoints > bestPoints || 
-                            (actualPoints == bestPoints && aviablePieces.Count > bestAviablePieces) || 
+                        if (actualPoints > bestPoints ||
+                            (actualPoints == bestPoints && aviablePieces.Count > bestAviablePieces) ||
                             (actualPoints == bestPoints && aviablePieces.Count == bestAviablePieces && getAllAuxMoves("player").Count > bestNumberOfMoves)) {
+
                             bestPoints = actualPoints;
                             bestPieceToMove = piece;
                             bestPositionToMove = positionToMove;
                             bestAviablePieces = aviablePieces.Count;
                             bestNumberOfMoves = getAllAuxMoves("player").Count;
                         }
-                        //Debug.Log("Piece = " + pieceScript.getType() + pieceScript.getPosition() + " | to = " + positionToMove + " | points = " + actualPoints + " | newMoves = " + getAllAuxMoves("player").Count);
                     }
 
                     resetAuxPieces();
@@ -1012,23 +1427,51 @@ public class Manager : MonoBehaviour
 
         playerPieceToMove = bestPieceToMove;
         playerPositionToMove = bestPositionToMove;
+
+        if (playerPieceToMove == null) {
+            playerPieceToMove = null;
+            playerPositionToMove = new Vector2(-1f, -1f);
+            playerPieceToPromote = -1;
+            playerPieceToMove2 = null;
+            playerPositionToMove2 = new Vector2(-1f, -1f);
+            return;
+        }
+
         Piece playerPieceToMoveScript = playerPieceToMove.GetComponent<Piece>();
 
-        if (playerPieceToMoveScript.getType().Contains("Pawn") && playerPositionToMove.y == 0f && playerPieceToMoveScript.getPosition().y == 1f) {
+        if (playerPieceToMoveScript.getType().Contains("Pawn") &&
+            playerPositionToMove.y == 7f &&
+            playerPieceToMoveScript.getPosition().y == 6f) {
             playerPieceToPromote = 0;
-        } else playerPieceToPromote = -1;
+        }
+        else playerPieceToPromote = -1;
 
-        if (playerPieceToMoveScript.getType() == "playerKing" && playerPieceToMoveScript.getPosition() == new Vector2(4f, 7f) && (playerPositionToMove == new Vector2(2f, 7f) || playerPositionToMove == new Vector2(6f, 7f))) {
+        if (playerPieceToMoveScript.getType() == "playerKing" &&
+            playerPieceToMoveScript.getPosition() == new Vector2(4f, 7f) &&
+            (playerPositionToMove == new Vector2(2f, 7f) || playerPositionToMove == new Vector2(6f, 7f))) {
+
             if (playerPositionToMove == new Vector2(2f, 7f)) {
                 playerPieceToMove2 = getPieceByPosition(new Vector2(0f, 7f));
                 playerPositionToMove2 = new Vector2(3f, 7f);
-            } else {
+            }
+            else {
                 playerPieceToMove2 = getPieceByPosition(new Vector2(7f, 7f));
                 playerPositionToMove2 = new Vector2(5f, 7f);
             }
-        } else {
+        }
+        else {
             playerPieceToMove2 = null;
             playerPositionToMove2 = new Vector2(-1f, -1f);
+        }
+
+        if (tempo < playerPositionsOpening.Count) {
+            if (!pieces[playerPiecesOpening[tempo]].GetComponent<Piece>().getEliminated()) {
+                playerPieceToMove = pieces[playerPiecesOpening[tempo]];
+                playerPositionToMove = playerPositionsOpening[tempo];
+                playerPieceToMove2 = null;
+                playerPositionToMove2 = new Vector2(-1f, -1f);
+                playerPieceToPromote = -1;
+            }
         }
     }
 
@@ -1071,11 +1514,96 @@ public class Manager : MonoBehaviour
             enemyPieceToMove2 = null;
             enemyPositionToMove2 = new Vector2(-1f, -1f);
         }
+
+        if (tempo < enemyPositionsOpening.Count) {
+            if (!pieces[enemyPiecesOpening[tempo]].GetComponent<Piece>().getEliminated()) {
+                enemyPieceToMove = pieces[enemyPiecesOpening[tempo]];
+                enemyPositionToMove = enemyPositionsOpening[tempo];
+                enemyPieceToMove2 = null;
+                enemyPositionToMove2 = new Vector2(-1f, -1f);
+                enemyPieceToPromote = -1;
+            }
+        }
+    }
+
+    private void playerMinimaxAlgorithm() {
+        resetAuxPieces();
+        resetAllAuxPossibleMoves();
+
+        float bestEvaluation = 10001f;
+
+        foreach (GameObject piece in pieces) {
+            Piece pieceScript = piece.GetComponent<Piece>();
+
+            if (pieceScript.getType().Contains("player") && 
+                !pieceScript.getEliminated()) {
+
+                foreach (Vector2 move in pieceScript.getPossibleMoves()) {
+
+                    float evaluation = playerRecursiveMinimax(auxPieces, pieceScript.getAuxPiece(), move, miniMaxDepth, -10001f, bestEvaluation);
+
+                    if (evaluation < bestEvaluation) {
+                        bestEvaluation = evaluation;
+                        playerPieceToMove = piece;
+                        playerPositionToMove = move;
+                    }
+
+                    resetAuxPieces();
+                    resetAllAuxPossibleMoves();
+                }
+            }
+        }
+
+        if (playerPieceToMove == null) {
+            playerPieceToMove = null;
+            playerPositionToMove = new Vector2(-1f, -1f);
+            playerPieceToPromote = -1;
+            playerPieceToMove2 = null;
+            playerPositionToMove2 = new Vector2(-1f, -1f);
+            return;
+        }
+
+        Piece playerPieceToMoveScript = playerPieceToMove.GetComponent<Piece>();
+
+        if (playerPieceToMoveScript.getType().Contains("Pawn") &&
+            playerPositionToMove.y == 7f &&
+            playerPieceToMoveScript.getPosition().y == 6f) {
+            playerPieceToPromote = 0;
+        }
+        else playerPieceToPromote = -1;
+
+        if (playerPieceToMoveScript.getType() == "playerKing" &&
+            playerPieceToMoveScript.getPosition() == new Vector2(4f, 7f) &&
+            (playerPositionToMove == new Vector2(2f, 7f) || playerPositionToMove == new Vector2(6f, 7f))) {
+
+            if (playerPositionToMove == new Vector2(2f, 7f)) {
+                playerPieceToMove2 = getPieceByPosition(new Vector2(0f, 7f));
+                playerPositionToMove2 = new Vector2(3f, 7f);
+            }
+            else {
+                playerPieceToMove2 = getPieceByPosition(new Vector2(7f, 7f));
+                playerPositionToMove2 = new Vector2(5f, 7f);
+            }
+        }
+        else {
+            playerPieceToMove2 = null;
+            playerPositionToMove2 = new Vector2(-1f, -1f);
+        }
+
+        if (tempo < playerPositionsOpening.Count) {
+            if (!pieces[playerPiecesOpening[tempo]].GetComponent<Piece>().getEliminated()) {
+                playerPieceToMove = pieces[playerPiecesOpening[tempo]];
+                playerPositionToMove = playerPositionsOpening[tempo];
+                playerPieceToMove2 = null;
+                playerPositionToMove2 = new Vector2(-1f, -1f);
+                playerPieceToPromote = -1;
+            }
+        }
     }
 
     private float recursiveMinimax(List<GameObject> auxPiecesCopy, GameObject enemyPiece, Vector2 enemyMove, int depth, float alpha, float beta) {
 
-        if (depth <= 0 || checkAuxWin("player") || checkAuxWin("enemy") || checkDraw()) {
+        if (depth <= 0 || checkAuxWin("player") || checkAuxWin("enemy") || checkAuxDraw()) {
             return evaluateAux();
         }
 
@@ -1123,85 +1651,25 @@ public class Manager : MonoBehaviour
         } 
     }
 
-    private void playerMinimaxAlgorithm() {
-        resetAuxPieces();
-        resetAllAuxPossibleMoves();
-
-        float bestEvaluation = -10001f;
-        foreach(GameObject piece in pieces) {
-            Piece pieceScript = piece.GetComponent<Piece>();
-            if (pieceScript.getType().Contains("player") && !pieceScript.getEliminated()) {
-                foreach (Vector2 move in pieceScript.getPossibleMoves()) {
-                    float evaluation = playerRecursiveMinimax(auxPieces, pieceScript.getAuxPiece(), move, miniMaxDepth, bestEvaluation, 10001f);
-
-                    if (evaluation > bestEvaluation) {
-                        bestEvaluation = evaluation;
-                        playerPieceToMove = piece;
-                        playerPositionToMove = move;
-                    }
-                    resetAuxPieces();
-                    resetAllAuxPossibleMoves();
-                }
-            }
-        }
-
-        Piece playerPieceToMoveScript = playerPieceToMove.GetComponent<Piece>();
-        if (playerPieceToMoveScript.getType().Contains("Pawn") && playerPositionToMove.y == 0f && playerPieceToMoveScript.getPosition().y == 1f) {
-            playerPieceToPromote = 0;
-        } else playerPieceToPromote = -1;
-
-        if (playerPieceToMoveScript.getType() == "playerKing" && playerPieceToMoveScript.getPosition() == new Vector2(4f, 7f) && (playerPositionToMove == new Vector2(2f, 7f) || playerPositionToMove == new Vector2(6f, 7f))) {
-            if (playerPositionToMove == new Vector2(2f, 7f)) {
-                playerPieceToMove2 = getPieceByPosition(new Vector2(0f, 7f));
-                playerPositionToMove2 = new Vector2(3f, 7f);
-            } else {
-                playerPieceToMove2 = getPieceByPosition(new Vector2(7f, 7f));
-                playerPositionToMove2 = new Vector2(5f, 7f);
-            }
-        } else {
-            playerPieceToMove2 = null;
-            playerPositionToMove2 = new Vector2(-1f, -1f);
-        }
-    }
-
     private float playerRecursiveMinimax(List<GameObject> auxPiecesCopy, GameObject playerPiece, Vector2 playerMove, int depth, float alpha, float beta) {
-
-        if (depth <= 0 || checkAuxWin("player") || checkAuxWin("enemy") || checkDraw()) {
+        if (depth <= 0 || checkAuxWin("player") || checkAuxWin("enemy") || checkAuxDraw()) {
             return evaluateAux();
         }
 
         if (playerPiece == null) {
 
-            float minEvaluation = 10001f;
-            foreach(GameObject piece in auxPieces) {
-                Piece pieceScript = piece.GetComponent<Piece>();
-                if (pieceScript.getType().Contains("player") && !pieceScript.getEliminated()) {
-                    foreach(Vector2 move in pieceScript.getPossibleMoves()) {
-
-                        float evaluation = recursiveMinimax(auxPiecesCopy, piece, move, depth, alpha, beta);
-                        copyAuxPieces(auxPiecesCopy);
-                        resetAllAuxPossibleMoves();
-
-                        
-                        if (evaluation < minEvaluation) minEvaluation = evaluation;
-                        if (evaluation < beta) beta = evaluation;
-                        if (beta <= alpha) break;
-                    }
-                }
-            }
-            return minEvaluation;
-        } else {
-            
             float maxEvaluation = -10001f;
-            foreach(GameObject piece in auxPieces) {
-                Piece pieceScript = piece.GetComponent<Piece>();
-                if (pieceScript.getType().Contains("enemy") && !pieceScript.getEliminated()) {
-                    foreach(Vector2 move in pieceScript.getPossibleMoves()) {
-                        preMoveAuxPiece(playerPiece, playerMove, "player");
-                        preMoveAuxPiece(piece, move, "enemy");
-                        setAuxMoves();
 
-                        float evaluation = recursiveMinimax(auxPieces, null, new Vector2(-1f, -1f), depth - 1, alpha, beta);
+            foreach (GameObject piece in auxPieces) {
+                Piece pieceScript = piece.GetComponent<Piece>();
+
+                if (pieceScript.getType().Contains("enemy") && 
+                    !pieceScript.getEliminated()) {
+
+                    foreach (Vector2 move in pieceScript.getPossibleMoves()) {
+
+                        float evaluation = playerRecursiveMinimax(auxPiecesCopy, piece, move, depth, alpha, beta);
+
                         copyAuxPieces(auxPiecesCopy);
                         resetAllAuxPossibleMoves();
 
@@ -1211,8 +1679,39 @@ public class Manager : MonoBehaviour
                     }
                 }
             }
+
             return maxEvaluation;
         } 
+        else {
+
+            float minEvaluation = 10001f;
+
+            foreach (GameObject piece in auxPieces) {
+                Piece pieceScript = piece.GetComponent<Piece>();
+
+                if (pieceScript.getType().Contains("player") && 
+                    !pieceScript.getEliminated()) {
+
+                    foreach (Vector2 move in pieceScript.getPossibleMoves()) {
+
+                        preMoveAuxPiece(playerPiece, playerMove, "player");
+                        preMoveAuxPiece(piece, move, "enemy");
+                        setAuxMoves();
+
+                        float evaluation = playerRecursiveMinimax(auxPieces, null, new Vector2(-1f, -1f), depth - 1, alpha, beta);
+
+                        copyAuxPieces(auxPiecesCopy);
+                        resetAllAuxPossibleMoves();
+
+                        if (evaluation < minEvaluation) minEvaluation = evaluation;
+                        if (evaluation < beta) beta = evaluation;
+                        if (beta <= alpha) break;
+                    }
+                }
+            }
+
+            return minEvaluation;
+        }
     }
 
     private float evaluate() {
@@ -1245,7 +1744,7 @@ public class Manager : MonoBehaviour
 
     public float evaluateAux() {
         if (checkAuxDraw()) return 0f;
-        if (checkAuxWin("player") && checkWin("enemy")) return 0f;
+        if (checkAuxWin("player") && checkAuxWin("enemy")) return 0f;
         if (checkAuxWin("player")) return -10000f;
         if (checkAuxWin("enemy")) return 10000f;
 
@@ -1265,6 +1764,14 @@ public class Manager : MonoBehaviour
                 evaluation += sign * allMoves.Count * movesEval;
                 if (pieceScript.getType().Contains("enemy") && playerThreads.Contains(pieceScript.getPosition())) evaluation += -1f * threadEval * getPointsPerPiece(pieceScript.getType());
                 if (pieceScript.getType().Contains("player") && enemyThreads.Contains(pieceScript.getPosition())) evaluation += threadEval * getPointsPerPiece(pieceScript.getType());
+                if (pieceScript.getType() == "playerPawn" && pieceScript.getPosition().y == 4f) evaluation -= 2f;
+                if (pieceScript.getType() == "playerPawn" && pieceScript.getPosition().y == 5f) evaluation -= 4f;
+                if (pieceScript.getType() == "playerPawn" && pieceScript.getPosition().y == 6f) evaluation -= 6f;
+                if (pieceScript.getType() == "playerPawn" && pieceScript.getPosition().y == 7f) evaluation -= 9f;
+                if (pieceScript.getType() == "enemyPawn" && pieceScript.getPosition().y == 3f) evaluation += 2f;
+                if (pieceScript.getType() == "enemyPawn" && pieceScript.getPosition().y == 2f) evaluation += 4f;
+                if (pieceScript.getType() == "enemyPawn" && pieceScript.getPosition().y == 1f) evaluation += 6f;
+                if (pieceScript.getType() == "enemyPawn" && pieceScript.getPosition().y == 0f) evaluation += 9f;
             }
         }
 
@@ -1432,4 +1939,50 @@ public class Manager : MonoBehaviour
         }
         return allThreads;
     }
+
+    private void StartNextSimulation() {
+        if (currentSimulation >= simulationsPerPair) {
+            currentMatchupIndex++;
+            LoadCurrentMatchup();
+
+            if (currentMatchupIndex >= matchups.Count)
+                return;
+        }
+
+        currentSimulation++;
+        startPlaying = true;
+    }
+
+    private void BuildMatchups() {
+        matchups = new List<(int, int)>();
+
+        for (int i = 0; i < algorithms.Length; i++) {
+            for (int j = i + 1; j < algorithms.Length; j++) {
+                int a = algorithms[i];
+                int b = algorithms[j];
+
+                matchups.Add((a, b));
+            }
+        }
+
+    }
+
+    private void LoadCurrentMatchup() {
+        if (currentMatchupIndex >= matchups.Count) {
+            playing = false;
+            return;
+        }
+        var matchup = matchups[currentMatchupIndex];
+
+        algorithmId = matchup.enemyAlg;
+        playerAlgorithmId = matchup.playerAlg;
+
+        currentSimulation = 0;
+
+    }
+
+    private void clickSound() {
+
+    }
 }
+

@@ -1,0 +1,17 @@
+gameId,enemyAlg,playerAlg,result,turns
+1,0,1,Player,7
+1,0,1,Player,44
+1,0,1,Player,25
+2,0,1,Player,18
+3,0,1,Player,64
+4,0,1,Player,10
+5,0,1,Player,33
+6,0,1,Player,9
+7,0,1,Player,32
+8,0,1,Player,30
+9,0,1,Player,25
+10,0,1,Player,11
+11,0,1,Player,12
+12,0,1,Player,78
+13,0,1,Draw,80
+14,0,1,Player,28
